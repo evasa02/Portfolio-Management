@@ -35,6 +35,24 @@ async function getHistoricalPrice(symbol, purchaseDate) {
   }
 }
 
+async function getStockProfile(symbol) {
+  try {
+    const url = `https://api.twelvedata.com/profile?symbol=${symbol}&apikey=${STOCK_API_KEY}`;
+    const response = await axios.get(url);
+
+    if (!response.data || response.data.status === "error") {
+      throw new Error('No profile data found.');
+    }
+
+    return {
+      sector: response.data.sector ?? null
+    };
+  } catch (err) {
+    console.error(`Error fetching stock profile for ${symbol}:`, err.response?.data || err.message);
+    return { sector: null};
+  }
+}
+
 
 // // 🔁 Get historical price (e.g., for a "buy" date)
 // exports.getHistoricalPrice = async (symbol, date) => {
@@ -73,5 +91,6 @@ async function getLivePrice(symbol){
 
 module.exports = {
   getHistoricalPrice,
-  getLivePrice
+  getLivePrice,
+  getStockProfile
 };

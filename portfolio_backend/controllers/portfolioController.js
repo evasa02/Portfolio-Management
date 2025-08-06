@@ -1,5 +1,5 @@
 const db = require('../db');
-const { getHistoricalPrice, getLivePrice } = require('../services/twelveDataService');
+const { getHistoricalPrice, getLivePrice, getStockProfile } = require('../services/twelveDataService');
 
 exports.getPortfolio = async (req, res) => {
   try {
@@ -20,6 +20,7 @@ exports.getPortfolio = async (req, res) => {
   }
 };
 
+
 exports.buyStock = async (req, res) => {
   try {
     const { stock_symbol, company_name, quantity, purchase_date } = req.body;
@@ -31,13 +32,16 @@ exports.buyStock = async (req, res) => {
     const price = await getHistoricalPrice(stock_symbol, purchase_date);
     const total_cost = price * quantity;
 
-    // Insert into transactions table
+    // ✅ Fetch sector & industry
+    const { sector } = await getStockProfile(stock_symbol);
+
+    // Insert into transactions
     await db.query(`
       INSERT INTO transactions (stock_symbol, type, quantity, price, date)
       VALUES (?, 'BUY', ?, ?, ?)`,
       [stock_symbol, quantity, price, purchase_date]);
 
-    // Check if stock already exists in portfolio
+    // Check if the stock exists in portfolio
     const [existing] = await db.query(`
       SELECT quantity, average_buy_price FROM portfolio WHERE stock_symbol = ?`,
       [stock_symbol]);
@@ -50,14 +54,14 @@ exports.buyStock = async (req, res) => {
 
       await db.query(`
         UPDATE portfolio
-        SET quantity = ?, average_buy_price = ?, purchase_date = ?
+        SET quantity = ?, average_buy_price = ?, purchase_date = ?, sector = ?
         WHERE stock_symbol = ?`,
-        [newQty, newAvgPrice.toFixed(2), purchase_date, stock_symbol]);
+        [newQty, newAvgPrice.toFixed(2), purchase_date, sector, stock_symbol]);
     } else {
       await db.query(`
-        INSERT INTO portfolio (stock_symbol, company_name, quantity, average_buy_price, purchase_date)
-        VALUES (?, ?, ?, ?, ?)`,
-        [stock_symbol, company_name, quantity, price, purchase_date]);
+        INSERT INTO portfolio (stock_symbol, company_name, quantity, average_buy_price, purchase_date, sector)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+        [stock_symbol, company_name, quantity, price.toFixed(2), purchase_date, sector]);
     }
 
     res.status(201).json({
@@ -67,7 +71,8 @@ exports.buyStock = async (req, res) => {
       quantity,
       purchase_date,
       price,
-      total_cost
+      total_cost: total_cost.toFixed(2),
+      sector
     });
   } catch (error) {
     console.error('Buy stock error:', error.message);

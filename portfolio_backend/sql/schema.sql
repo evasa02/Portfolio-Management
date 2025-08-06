@@ -18,3 +18,5 @@ CREATE TABLE IF NOT EXISTS transactions (
     price DECIMAL(10, 2),
     date DATE
 );
+
+ALTER TABLE portfolio ADD COLUMN sector VARCHAR(255);
